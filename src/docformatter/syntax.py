@@ -361,6 +361,136 @@ def do_skip_link(text: str, index: Tuple[int, int]) -> bool:
     return _do_skip
 
 
+def do_wrap_pragraph_google(
+    paragraphs: list,
+    paragraph: str,
+    wrap_length: int = 72,
+    tab_nb_space: int = 4,
+    section_line: bool = False,
+    regex: str = None,
+):
+    """Wraps a paragraph from a description, following the google
+    docstring style.
+
+    Args:
+        paragraphs (list): the list of already wrapped paragraphs from
+            docstring
+        paragraph (str): the paragraph to wrap
+        wrap_length (int, optional): The column to wrap each line at.
+            Defaults to 72.
+        tab_nb_space (int, optional): Number of spaces in a tabulation.
+            Defaults to 4.
+        section_line (bool, optional): Boolean describing whether it is
+            a special section (Args, Raises, Returns) or not. Defaults
+            to False.
+        regex (str, optional): The regex used to gather the components
+            from the special section. Defaults to None.
+    """
+    tab = " " * tab_nb_space
+    # Split the argument section by lines, and format the first line as the header
+    lines = paragraph.splitlines()
+
+    # add "Args: to paragraph"
+    if section_line:
+        # calculate indentation for args list
+        indent_nb_tabs = (len(lines[1]) - len(lines[1].lstrip())) // tab_nb_space
+        formatted_paragraph = [lines[0]]
+        if regex is None:
+            args = ["\n".join(lines[1:])]
+        else:
+            # calculate args ids interval in paragraph
+            _field_idx = [
+                (_field.start(0), _field.end(0))
+                for _field in re.finditer(regex, paragraph)
+            ]
+
+            # gather each arg
+            args = []
+            for _idx, __ in enumerate(_field_idx[:-1]):
+                arg = paragraph[_field_idx[_idx][0] + 1 : _field_idx[_idx + 1][0]]
+                args.append(arg)
+            arg = paragraph[_field_idx[-1][0] + 1 :]
+            args.append(arg)
+    else:
+        # calculate indentation for args list
+        indent_nb_tabs = (len(lines[0]) - len(lines[0].lstrip())) // tab_nb_space
+        formatted_paragraph = []
+        args = [paragraph]
+
+    # Rewrap and indent subsequent lines of the argument description
+    for arg in args:
+        one_line_arg = " ".join([line.strip() for line in arg.splitlines()])
+        wrapped_lines = textwrap.wrap(
+            one_line_arg,
+            width=wrap_length,
+            initial_indent=tab * indent_nb_tabs,
+            subsequent_indent=tab * (indent_nb_tabs + section_line),
+        )
+        formatted_paragraph.append("\n".join(wrapped_lines))
+    paragraphs.append("\n".join(formatted_paragraph))
+
+
+def do_wrap_description_google(
+    docstring: str,
+    indentation: str,
+    wrap_length: int = 72,
+    tab_nb_space=4,
+) -> str:
+    """
+    Format a docstring to have lines with a specified maximum length following the google style.
+
+    Parameters:
+    - docstring (str): The original docstring to be formatted.
+    - wrap_length (int): The maximum line length. Default is 72 characters.
+
+    Returns:
+    - str: The formatted docstring with each line having at most `wrap_length` characters.
+    """
+    regex_args = r"\s*\w+\s*\(.*\):"
+    regex_raises = r"\s*\w+(Error|Exception)\s*:"
+    paragraphs = docstring.split("\n\n")
+    formatted_paragraphs = []
+
+    for paragraph in paragraphs:
+        # Check if the paragraph is part of an argument list (starts with indentation)
+        if paragraph.strip().startswith("Args:"):
+            do_wrap_pragraph_google(
+                paragraphs=formatted_paragraphs,
+                paragraph=paragraph,
+                wrap_length=wrap_length,
+                tab_nb_space=tab_nb_space,
+                section_line=True,
+                regex=regex_args,
+            )
+        elif paragraph.strip().startswith("Raises:"):
+            do_wrap_pragraph_google(
+                paragraphs=formatted_paragraphs,
+                paragraph=paragraph,
+                wrap_length=wrap_length,
+                tab_nb_space=tab_nb_space,
+                section_line=True,
+                regex=regex_raises,
+            )
+        elif paragraph.strip().startswith("Returns:"):
+            do_wrap_pragraph_google(
+                paragraphs=formatted_paragraphs,
+                paragraph=paragraph,
+                wrap_length=wrap_length,
+                tab_nb_space=tab_nb_space,
+                section_line=True,
+            )
+        else:
+            do_wrap_pragraph_google(
+                paragraphs=formatted_paragraphs,
+                paragraph=paragraph,
+                wrap_length=wrap_length,
+                tab_nb_space=tab_nb_space,
+            )
+
+    # Join paragraphs with double newlines for consistent paragraph separation
+    return "\n\n".join(formatted_paragraphs)
+
+
 def do_split_description(
     text: str,
     indentation: str,
@@ -470,6 +600,7 @@ def do_wrap_field_lists(  # noqa: PLR0913
          A list of the long description lines and the index in the long
         description where the last parameter list item ended.
     """
+
     lines.extend(
         description_to_list(
             text[text_idx : field_idx[0][0]],
@@ -598,6 +729,14 @@ def is_some_sort_of_field_list(
             (
                 # ":parameter: description" <-- Sphinx style
                 re.match(SPHINX_REGEX, line)
+            )
+            for line in split_lines
+        )
+    elif style == "google":
+        return any(
+            (
+                # ":parameter: description" <-- Sphinx style
+                re.match(GOOGLE_REGEX, line)
             )
             for line in split_lines
         )
@@ -835,9 +974,11 @@ def wrap_description(  # noqa: PLR0913
     ):
         return text
 
-    lines = do_split_description(text, indentation, wrap_length, style)
-
-    return indentation + "\n".join(lines).strip()
+    if style in ["sphinx", "epytext"]:
+        lines = do_split_description(text, indentation, wrap_length, style)
+        return indentation + "\n".join(lines).strip()
+    elif style == "google":
+        return do_wrap_description_google(text, indentation, wrap_length)
 
 
 def _do_close_description(
