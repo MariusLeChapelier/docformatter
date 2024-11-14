@@ -453,7 +453,9 @@ def do_wrap_description_google(
 
     for paragraph in paragraphs:
         # Check if the paragraph is part of an argument list (starts with indentation)
-        if paragraph.strip().startswith("Args:"):
+        if paragraph.strip().startswith("Args:") or paragraph.strip().startswith(
+            "Attributes:"
+        ):
             do_wrap_pragraph_google(
                 paragraphs=formatted_paragraphs,
                 paragraph=paragraph,
@@ -471,7 +473,11 @@ def do_wrap_description_google(
                 section_line=True,
                 regex=regex_raises,
             )
-        elif paragraph.strip().startswith("Returns:"):
+        elif (
+            paragraph.strip().startswith("Returns:")
+            or paragraph.strip().startswith("Examples:")
+            or paragraph.strip().startswith("Yields:")
+        ):
             do_wrap_pragraph_google(
                 paragraphs=formatted_paragraphs,
                 paragraph=paragraph,

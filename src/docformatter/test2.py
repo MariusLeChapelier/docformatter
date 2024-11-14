@@ -5,7 +5,13 @@ def f(param1, param2):
     and return types are annotated according to `PEP 484`_, they do not
     need to be included in the docstring:
 
+    Attributes:
+        vad_state (string): dialogue turn information (agent_turn,
+            user_turn, silence, interruption, etc) from VADTurnModule.
+
     Args:
+        vad_state (string): dialogue turn information (agent_turn,
+            user_turn, silence, interruption, etc) from VADTurnModule.
         param1 (int): The first parameter. `PEP 484`_ type annotations
             are supported. If attribute, parameter, and return types are
             annotated according to `PEP 484`_, they do not need to be
